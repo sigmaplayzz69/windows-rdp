@@ -68,7 +68,7 @@ jobs:
           "TAILSCALE_IP=$ip"|Out-File -Append $env:GITHUB_ENV
           Write-Host "Tailscale IPv4: $ip"
 
-      - name: Enable RDP (User: sourab)
+      - name: Enable RDP (RDP_USER)
   run: |
     $u = $env:RDP_USER
     $p = $env:RDP_PASS
