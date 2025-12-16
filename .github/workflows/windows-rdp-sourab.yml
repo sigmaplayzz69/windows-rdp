@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       runtime_minutes:
-        description: "RDP runtime (maximum 500 minutes)"
+        description: "RDP runtime (max 500 minutes)"
         required: false
         default: "450"
 
@@ -18,12 +18,12 @@ jobs:
       RDP_PASS: ${{ secrets.RDP_PASS }}
 
     steps:
-    -- name: Restore saved data
-  uses: actions/download-artifact@v4
-  continue-on-error: true
+    - name: Restore saved data
+      uses: actions/download-artifact@v4
+      continue-on-error: true
       with:
         name: sourab-data
-        path: D:\SourabMera
+        path: D:\sourab
 
     - name: Enable RDP
       shell: pwsh
@@ -44,13 +44,10 @@ jobs:
 
         Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
 
-        Write-Host "RDP ENABLED"
-
     - name: Create D drive folder
       shell: pwsh
       run: |
-        New-Item -ItemType Directory -Force -Path D:\SourabMera
-        Write-Host "D:\SourabMera READY"
+        New-Item -ItemType Directory -Force -Path D:\sourab
 
     - name: Keep RDP alive
       shell: pwsh
@@ -66,5 +63,5 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: sourab-data
-        path: D:\SourabMera
+        path: D:\sourab
         retention-days: 7
