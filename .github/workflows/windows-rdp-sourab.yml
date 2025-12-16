@@ -57,7 +57,34 @@ jobs:
           "HKLM:\System\CurrentControlSet\Control\Terminal Server" `
           -Name fDenyTSConnections -Value 0
 
-        Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+           - name: Enable RDP
+      shell: pwsh
+      run: |
+        $u = $env:RDP_USER
+        $p = $env:RDP_PASS
+        $s = ConvertTo-SecureString $p -AsPlainText -Force
+
+        if (-not (Get-LocalUser -Name $u -ErrorAction SilentlyContinue)) {
+          New-LocalUser -Name $u -Password $s -AccountNeverExpires
+          Add-LocalGroupMember -Group "Administrators" -Member $u
+          Add-LocalGroupMember -Group "Remote Desktop Users" -Member $u
+        }
+
+        # Enable RDP
+        Set-ItemProperty `
+          "HKLM:\System\CurrentControlSet\Control\Terminal Server" `
+          -Name fDenyTSConnections -Value 0
+
+        # Disable Network Level Authentication (NLA)
+        Set-ItemProperty `
+          "HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp" `
+          -Name UserAuthentication -Value 0
+
+        # Allow RDP on all firewall profiles
+        Set-NetFirewallRule -DisplayGroup "Remote Desktop" -Profile Any -Enabled True
+
+        # Restart RDP service
+        Restart-Service TermService -Force
 
     - name: Create D drive folder
       shell: pwsh
