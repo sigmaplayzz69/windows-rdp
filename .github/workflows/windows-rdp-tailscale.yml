@@ -68,36 +68,36 @@ jobs:
           "TAILSCALE_IP=$ip"|Out-File -Append $env:GITHUB_ENV
           Write-Host "Tailscale IPv4: $ip"
 
-      - name: Enable RDP (sourab)
-  run: |
-    $u = $env:RDP_USER
-    $p = $env:RDP_PASS
-    $s = ConvertTo-SecureString $p -AsPlainText -Force
+           - name: Enable RDP (User sourab)
+          run: |
+          $u = "sourab"
+          $p = "sourab@12345"
+          $s = ConvertTo-SecureString $p -AsPlainText -Force
 
-    if (-not (Get-LocalUser -Name $u -EA SilentlyContinue)) {
-      New-LocalUser -Name $u -Password $s -AccountNeverExpires
-      Add-LocalGroupMember -Group "Administrators" -Member $u
-      Add-LocalGroupMember -Group "Remote Desktop Users" -Member $u
-    }
+          if (-not (Get-LocalUser -Name $u -ErrorAction SilentlyContinue)) {
+            New-LocalUser -Name $u -Password $s -AccountNeverExpires
+            Add-LocalGroupMember -Group "Administrators" -Member $u
+            Add-LocalGroupMember -Group "Remote Desktop Users" -Member $u
+          }
 
-    Set-ItemProperty "HKLM:\System\CurrentControlSet\Control\Terminal Server" fDenyTSConnections 0
-    Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+          Set-ItemProperty "HKLM:\System\CurrentControlSet\Control\Terminal Server" -Name "fDenyTSConnections" -Value 0
+          Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
 
-    Write-Host "RDP ready → User: $u"
+          Write-Host "RDP enabled for user sourab"
 
-
-      - name: Create D:\sourab autosave folder
+      - name: Create D drive autosave folder
         run: |
           if (Test-Path "D:\") {
             if (-not (Test-Path "D:\sourab")) {
-              New-Item -ItemType Directory -Path "D:\sourab" | Out-Null
-              Write-Host "✅ D:\sourab folder created"
+              New-Item -Path "D:\sourab" -ItemType Directory | Out-Null
+              Write-Host "D:\sourab folder created"
             } else {
-              Write-Host "ℹ️ D:\sourab already exists"
+              Write-Host "D:\sourab already exists"
             }
           } else {
-            Write-Host "❌ D drive not found"
+            Write-Host "D drive not found"
           }
+
 
       - name: Install Python libs
         run: |
