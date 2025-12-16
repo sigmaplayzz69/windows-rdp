@@ -18,8 +18,9 @@ jobs:
       RDP_PASS: ${{ secrets.RDP_PASS }}
 
     steps:
-    - name: Restore saved data
-      uses: actions/download-artifact@v4
+    -- name: Restore saved data
+  uses: actions/download-artifact@v4
+  continue-on-error: true
       with:
         name: sourab-data
         path: D:\SourabMera
