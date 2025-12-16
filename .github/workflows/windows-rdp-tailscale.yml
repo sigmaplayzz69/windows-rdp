@@ -22,7 +22,7 @@ defaults:
 
 jobs:
   setup:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     outputs:
       matrix: ${{ steps.mk.outputs.matrix }}
     steps:
@@ -36,7 +36,7 @@ jobs:
 
   rdp:
     needs: setup
-    runs-on: windows-latest
+    runs-on: windows-2022
     strategy:
       matrix: ${{ fromJson(needs.setup.outputs.matrix) }}
     timeout-minutes: 370
@@ -54,22 +54,22 @@ jobs:
           "RUNTIME_MINUTES=$rt"|Out-File -Append $env:GITHUB_ENV
           Write-Host "Runtime set to $rt minutes"
 
-      - name: Install + Configure Tailscale
-        run: |
-          $ts="$env:ProgramFiles\Tailscale\tailscale.exe"
-          if(-not(Test-Path $ts)){
-            $url="https://pkgs.tailscale.com/stable/tailscale-setup-1.82.0-amd64.msi"
-            $dst="$env:TEMP\tailscale.msi"
+          - name: Install + Configure Tailscale
+          run: |
+          $ts = "$env:ProgramFiles\Tailscale\tailscale.exe"
+          if (-not (Test-Path $ts)) {
+            $url = "https://pkgs.tailscale.com/stable/tailscale-setup-1.82.0-amd64.msi"
+            $dst = "$env:TEMP\tailscale.msi"
             Invoke-WebRequest $url -OutFile $dst
             Start-Process msiexec.exe -ArgumentList "/i","`"$dst`"","/quiet","/norestart" -Wait
           }
-          & $ts up --authkey "${{ inputs.ts_authkey }}" --hostname "sourab-rdp" --accept-dns=true
-          $ip=& $ts ip -4 | Select-Object -First 1
-          "TAILSCALE_IP=$ip"|Out-File -Append $env:GITHUB_ENV
-          Write-Host "Tailscale IPv4: $ip"
 
-           - name: Enable RDP (User sourab)
-          run: |
+          & $ts up --authkey "${{ inputs.ts_authkey }}" --hostname "sourab-rdp" --accept-dns=true
+          $ip = & $ts ip -4 | Select-Object -First 1
+          "TAILSCALE_IP=$ip" | Out-File -Append $env:GITHUB_ENV
+
+      - name: Enable RDP (User sourab)
+        run: |
           $u = "sourab"
           $p = "sourab@12345"
           $s = ConvertTo-SecureString $p -AsPlainText -Force
@@ -83,19 +83,12 @@ jobs:
           Set-ItemProperty "HKLM:\System\CurrentControlSet\Control\Terminal Server" -Name "fDenyTSConnections" -Value 0
           Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
 
-          Write-Host "RDP enabled for user sourab"
-
       - name: Create D drive autosave folder
         run: |
           if (Test-Path "D:\") {
             if (-not (Test-Path "D:\sourab")) {
               New-Item -Path "D:\sourab" -ItemType Directory | Out-Null
-              Write-Host "D:\sourab folder created"
-            } else {
-              Write-Host "D:\sourab already exists"
             }
-          } else {
-            Write-Host "D drive not found"
           }
 
 
