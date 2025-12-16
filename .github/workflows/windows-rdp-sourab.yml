@@ -25,6 +25,21 @@ jobs:
         name: sourab-data
         path: D:\sourab
 
+    - name: Install & Connect Tailscale
+      shell: pwsh
+      run: |
+        $ts = "$env:ProgramFiles\Tailscale\tailscale.exe"
+        if (-not (Test-Path $ts)) {
+          $url = "https://pkgs.tailscale.com/stable/tailscale-setup-latest-amd64.msi"
+          $dst = "$env:TEMP\tailscale.msi"
+          Invoke-WebRequest $url -OutFile $dst
+          Start-Process msiexec.exe -ArgumentList "/i","`"$dst`"","/quiet","/norestart" -Wait
+        }
+
+        & $ts up --authkey "${{ secrets.TS_AUTHKEY }}" --hostname "sourab-rdp"
+        $ip = & $ts ip -4 | Select-Object -First 1
+        Write-Host "TAILSCALE IP: $ip"
+
     - name: Enable RDP
       shell: pwsh
       run: |
