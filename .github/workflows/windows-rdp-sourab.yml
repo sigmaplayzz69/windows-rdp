@@ -4,14 +4,14 @@ on:
   workflow_dispatch:
     inputs:
       runtime_minutes:
-        description: "RDP runtime (max 450 minutes)"
+        description: "RDP runtime (max 500 minutes)"
         required: false
-        default: "400"
+        default: "450"
 
 jobs:
   rdp:
     runs-on: windows-latest
-    timeout-minutes: 450
+    timeout-minutes: 500
 
     env:
       RDP_USER: ${{ secrets.RDP_USER }}
