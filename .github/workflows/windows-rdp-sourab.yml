@@ -1,0 +1,69 @@
+name: Windows RDP + Data Persist (Sourab)
+
+on:
+  workflow_dispatch:
+    inputs:
+      runtime_minutes:
+        description: "RDP runtime (maximum 500 minutes)"
+        required: false
+        default: "450"
+
+jobs:
+  rdp:
+    runs-on: windows-latest
+    timeout-minutes: 500
+
+    env:
+      RDP_USER: ${{ secrets.RDP_USER }}
+      RDP_PASS: ${{ secrets.RDP_PASS }}
+
+    steps:
+    - name: Restore saved data
+      uses: actions/download-artifact@v4
+      with:
+        name: sourab-data
+        path: D:\SourabMera
+
+    - name: Enable RDP
+      shell: pwsh
+      run: |
+        $u = $env:RDP_USER
+        $p = $env:RDP_PASS
+        $s = ConvertTo-SecureString $p -AsPlainText -Force
+
+        if (-not (Get-LocalUser -Name $u -ErrorAction SilentlyContinue)) {
+          New-LocalUser -Name $u -Password $s -AccountNeverExpires
+          Add-LocalGroupMember -Group "Administrators" -Member $u
+          Add-LocalGroupMember -Group "Remote Desktop Users" -Member $u
+        }
+
+        Set-ItemProperty `
+          "HKLM:\System\CurrentControlSet\Control\Terminal Server" `
+          -Name fDenyTSConnections -Value 0
+
+        Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+
+        Write-Host "RDP ENABLED"
+
+    - name: Create D drive folder
+      shell: pwsh
+      run: |
+        New-Item -ItemType Directory -Force -Path D:\SourabMera
+        Write-Host "D:\SourabMera READY"
+
+    - name: Keep RDP alive
+      shell: pwsh
+      run: |
+        $end = (Get-Date).AddMinutes([int]"${{ inputs.runtime_minutes }}")
+        while ((Get-Date) -lt $end) {
+          Write-Host "RDP running at $(Get-Date)"
+          Start-Sleep 60
+        }
+
+    - name: Save data before exit
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: sourab-data
+        path: D:\SourabMera
+        retention-days: 7
