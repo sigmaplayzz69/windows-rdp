@@ -69,21 +69,22 @@ jobs:
           Write-Host "Tailscale IPv4: $ip"
 
       - name: Enable RDP (User: sourab)
-        run: |
-          $u=$env:RDP_USER
-          $p=$env:RDP_PASS
-          $s=ConvertTo-SecureString $p -AsPlainText -Force
+  run: |
+    $u = $env:RDP_USER
+    $p = $env:RDP_PASS
+    $s = ConvertTo-SecureString $p -AsPlainText -Force
 
-          if(-not(Get-LocalUser -Name $u -EA SilentlyContinue)){
-            New-LocalUser -Name $u -Password $s -AccountNeverExpires
-            Add-LocalGroupMember -Group "Administrators" -Member $u
-            Add-LocalGroupMember -Group "Remote Desktop Users" -Member $u
-          }
+    if (-not (Get-LocalUser -Name $u -EA SilentlyContinue)) {
+      New-LocalUser -Name $u -Password $s -AccountNeverExpires
+      Add-LocalGroupMember -Group "Administrators" -Member $u
+      Add-LocalGroupMember -Group "Remote Desktop Users" -Member $u
+    }
 
-          Set-ItemProperty "HKLM:\System\CurrentControlSet\Control\Terminal Server" fDenyTSConnections 0
-          Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+    Set-ItemProperty "HKLM:\System\CurrentControlSet\Control\Terminal Server" fDenyTSConnections 0
+    Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
 
-          Write-Host "RDP ready → User: $u | IP: $env:TAILSCALE_IP"
+    Write-Host "RDP ready → User: $u"
+
 
       - name: Create D:\sourab autosave folder
         run: |
