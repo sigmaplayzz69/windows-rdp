@@ -1,24 +1,25 @@
-name: Windows RDP + Data Persist (Sourab)
+name: Windows RDP via Tailscale (Clean)
 
 on:
   workflow_dispatch:
     inputs:
       runtime_minutes:
-        description: "RDP runtime (max 500 minutes)"
+        description: "RDP runtime (max 360 minutes)"
         required: false
-        default: "450"
+        default: "300"
 
 jobs:
   rdp:
     runs-on: windows-latest
-    timeout-minutes: 500
+    timeout-minutes: 360
 
     env:
       RDP_USER: ${{ secrets.RDP_USER }}
       RDP_PASS: ${{ secrets.RDP_PASS }}
+      TS_AUTHKEY: ${{ secrets.TS_AUTHKEY }}
 
     steps:
-    - name: Restore saved data
+    - name: Restore data (first run safe)
       uses: actions/download-artifact@v4
       continue-on-error: true
       with:
@@ -35,29 +36,11 @@ jobs:
           Invoke-WebRequest $url -OutFile $dst
           Start-Process msiexec.exe -ArgumentList "/i","`"$dst`"","/quiet","/norestart" -Wait
         }
-
-        & $ts up --authkey "${{ secrets.TS_AUTHKEY }}" --hostname "sourab-rdp"
+        & $ts up --authkey $env:TS_AUTHKEY --hostname "sourab-rdp"
         $ip = & $ts ip -4 | Select-Object -First 1
         Write-Host "TAILSCALE IP: $ip"
 
-    - name: Enable RDP
-      shell: pwsh
-      run: |
-        $u = $env:RDP_USER
-        $p = $env:RDP_PASS
-        $s = ConvertTo-SecureString $p -AsPlainText -Force
-
-        if (-not (Get-LocalUser -Name $u -ErrorAction SilentlyContinue)) {
-          New-LocalUser -Name $u -Password $s -AccountNeverExpires
-          Add-LocalGroupMember -Group "Administrators" -Member $u
-          Add-LocalGroupMember -Group "Remote Desktop Users" -Member $u
-        }
-
-        Set-ItemProperty `
-          "HKLM:\System\CurrentControlSet\Control\Terminal Server" `
-          -Name fDenyTSConnections -Value 0
-
-           - name: Enable RDP
+    - name: Enable RDP (Public + NLA off)
       shell: pwsh
       run: |
         $u = $env:RDP_USER
@@ -71,22 +54,19 @@ jobs:
         }
 
         # Enable RDP
-        Set-ItemProperty `
-          "HKLM:\System\CurrentControlSet\Control\Terminal Server" `
+        Set-ItemProperty "HKLM:\System\CurrentControlSet\Control\Terminal Server" `
           -Name fDenyTSConnections -Value 0
 
-        # Disable Network Level Authentication (NLA)
-        Set-ItemProperty `
-          "HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp" `
+        # Disable NLA
+        Set-ItemProperty "HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp" `
           -Name UserAuthentication -Value 0
 
-        # Allow RDP on all firewall profiles
+        # Allow RDP on all profiles
         Set-NetFirewallRule -DisplayGroup "Remote Desktop" -Profile Any -Enabled True
 
-        # Restart RDP service
         Restart-Service TermService -Force
 
-    - name: Create D drive folder
+    - name: Prepare data folder
       shell: pwsh
       run: |
         New-Item -ItemType Directory -Force -Path D:\sourab
@@ -100,7 +80,7 @@ jobs:
           Start-Sleep 60
         }
 
-    - name: Save data before exit
+    - name: Save data
       if: always()
       uses: actions/upload-artifact@v4
       with:
