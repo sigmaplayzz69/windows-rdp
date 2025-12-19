@@ -3,14 +3,42 @@ name: RDP + Tailscale (Workflow 1)
 on:
   workflow_dispatch:
     inputs:
-      ts_tailnet:         { description: "Tailscale tailnet (e.g. you@gmail.com)", required: true }
-      ts_api_key:         { description: "Tailscale API key (device admin, no Bearer)", required: true }
-      ts_authkey:         { description: "Tailscale Auth key", required: true }
-      quick_test:         { description: "Run 5-minute test", type: boolean, default: false }
-      runtime_minutes:    { description: "Runtime minutes", required: false, default: "355" }
-      do_purge:           { description: "Purge bullet* devices", required: false, default: "true" }
-      rdp_count:          { description: "RDP instance count (1-10)", required: false, default: "1" }
-      cycles_left:        { description: "Number of full cycles remaining", required: false, default: "5" }
+      ts_tailnet:
+        description: "Tailscale tailnet (e.g. you@gmail.com)"
+        required: true
+
+      ts_api_key:
+        description: "Tailscale API key (device admin, no Bearer)"
+        required: true
+
+      ts_authkey:
+        description: "Tailscale Auth key"
+        required: true
+
+      quick_test:
+        description: "Run 5-minute test"
+        type: boolean
+        default: false
+
+      runtime_minutes:
+        description: "Runtime minutes"
+        required: false
+        default: "450"
+
+      do_purge:
+        description: "Purge bullet* devices"
+        required: false
+        default: "true"
+
+      rdp_count:
+        description: "RDP instance count (1-10)"
+        required: false
+        default: "1"
+
+      cycles_left:
+        description: "Number of full cycles remaining"
+        required: false
+        default: "5"
 
 permissions:
   contents: read
@@ -22,24 +50,33 @@ defaults:
 
 jobs:
   setup:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.mk.outputs.matrix }}
+
     steps:
       - id: mk
         run: |
           $n=[int]"${{ inputs.rdp_count }}"
-          if($n -lt 1){$n=1}; if($n -gt 10){$n=10}
-          $arr=@(); for($i=1;$i -le $n;$i++){ $arr+=@{id=$i} }
+          if($n -lt 1){$n=1}
+          if($n -gt 10){$n=10}
+
+          $arr=@()
+          for($i=1;$i -le $n;$i++){
+            $arr+=@{id=$i}
+          }
+
           $json=@{include=$arr}|ConvertTo-Json -Compress
-          "matrix=$json"|Out-File $env:GITHUB_OUTPUT -Append
+          "matrix=$json" | Out-File $env:GITHUB_OUTPUT -Append
 
   rdp:
     needs: setup
     runs-on: windows-2022
+
     strategy:
       matrix: ${{ fromJson(needs.setup.outputs.matrix) }}
-    timeout-minutes: 370
+
+    timeout-minutes: 500
 
     env:
       RDP_USER: sourab
@@ -49,47 +86,60 @@ jobs:
       - name: Decide runtime
         run: |
           function Yes($v){ "$v" -match '^(?i:true|1|yes|on)$' }
-          $rt=if(Yes("${{ inputs.quick_test }}")){5}else{[int]"${{ inputs.runtime_minutes }}"}
-          if($rt -gt 360){$rt=355}
-          "RUNTIME_MINUTES=$rt"|Out-File -Append $env:GITHUB_ENV
+
+          $rt = if(Yes("${{ inputs.quick_test }}")){5}else{[int]"${{ inputs.runtime_minutes }}"}
+          if($rt -gt 500){$rt=450}
+
+          "RUNTIME_MINUTES=$rt" | Out-File -Append $env:GITHUB_ENV
           Write-Host "Runtime set to $rt minutes"
 
-          - name: Install + Configure Tailscale
-          run: |
-          $ts = "$env:ProgramFiles\Tailscale\tailscale.exe"
-          if (-not (Test-Path $ts)) {
-            $url = "https://pkgs.tailscale.com/stable/tailscale-setup-1.82.0-amd64.msi"
-            $dst = "$env:TEMP\tailscale.msi"
+      - name: Install + Configure Tailscale
+        run: |
+          $ts="$env:ProgramFiles\Tailscale\tailscale.exe"
+
+          if(-not(Test-Path $ts)){
+            $url="https://pkgs.tailscale.com/stable/tailscale-setup-1.82.0-amd64.msi"
+            $dst="$env:TEMP\tailscale.msi"
             Invoke-WebRequest $url -OutFile $dst
-            Start-Process msiexec.exe -ArgumentList "/i","`"$dst`"","/quiet","/norestart" -Wait
+            Start-Process msiexec.exe -ArgumentList "/i","$dst","/quiet","/norestart" -Wait
           }
 
-          & $ts up --authkey "${{ inputs.ts_authkey }}" --hostname "sourab-rdp" --accept-dns=true
+          & $ts up --authkey "${{ inputs.ts_authkey }}" --hostname "bullet1" --accept-dns=true
           $ip = & $ts ip -4 | Select-Object -First 1
+
           "TAILSCALE_IP=$ip" | Out-File -Append $env:GITHUB_ENV
+          Write-Host "Tailscale IPv4: $ip"
 
-      - name: Enable RDP (User sourab)
+      - name: Enable RDP
         run: |
-          $u = "sourab"
-          $p = "sourab@12345"
-          $s = ConvertTo-SecureString $p -AsPlainText -Force
+          $u=$env:RDP_USER
+          $p=$env:RDP_PASS
+          $s=ConvertTo-SecureString $p -AsPlainText -Force
 
-          if (-not (Get-LocalUser -Name $u -ErrorAction SilentlyContinue)) {
+          if(-not(Get-LocalUser -Name $u -EA SilentlyContinue)){
             New-LocalUser -Name $u -Password $s -AccountNeverExpires
             Add-LocalGroupMember -Group "Administrators" -Member $u
             Add-LocalGroupMember -Group "Remote Desktop Users" -Member $u
           }
 
-          Set-ItemProperty "HKLM:\System\CurrentControlSet\Control\Terminal Server" -Name "fDenyTSConnections" -Value 0
+          Set-ItemProperty "HKLM:\System\CurrentControlSet\Control\Terminal Server" fDenyTSConnections 0
           Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
 
-      - name: Create D drive autosave folder
-        run: |
-          if (Test-Path "D:\") {
-            if (-not (Test-Path "D:\sourab")) {
-              New-Item -Path "D:\sourab" -ItemType Directory | Out-Null
-            }
-          }
+          Write-Host "RDP ready: $u / $p @ $env:TAILSCALE_IP"
+
+             - name: Restore sourab data
+              uses: actions/download-artifact@v4
+               with:
+                name: sourab-data
+                  path: D:\sourab
+
+
+          - name: Create D drive sourab folder
+  run: |
+    if (!(Test-Path "D:\sourab")) {
+      New-Item -ItemType Directory -Path "D:\sourab"
+    }
+    Write-Host "D:\sourab ready"
 
 
       - name: Install Python libs
@@ -101,7 +151,7 @@ jobs:
         run: |
           $end=(Get-Date).AddMinutes([int]"${{ env.RUNTIME_MINUTES }}")
           while((Get-Date) -lt $end){
-            Write-Host ("Workflow heartbeat " + (Get-Date))
+            Write-Host ("Workflow1 heartbeat " + (Get-Date))
             Start-Sleep 60
           }
 
@@ -111,6 +161,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           $next=[int]"${{ inputs.cycles_left }}" - 1
+
           $payload=@{
             ts_tailnet="${{ inputs.ts_tailnet }}"
             ts_api_key="${{ inputs.ts_api_key }}"
@@ -121,8 +172,26 @@ jobs:
             rdp_count="${{ inputs.rdp_count }}"
             cycles_left="$next"
           }
+
           $url="https://api.github.com/repos/${{ github.repository }}/actions/workflows/workflow-2.yml/dispatches"
-          $hdr=@{Authorization="Bearer $env:GH_TOKEN";Accept="application/vnd.github+json"}
-          $body=@{ref="${{ github.ref_name }}";inputs=$payload}|ConvertTo-Json -Depth 20
+          $hdr=@{
+            Authorization="Bearer $env:GH_TOKEN"
+            Accept="application/vnd.github+json"
+          }
+
+          $body=@{
+            ref="${{ github.ref_name }}"
+            inputs=$payload
+          } | ConvertTo-Json -Depth 20
+
           Invoke-WebRequest -Method POST -Uri $url -Headers $hdr -Body $body | Out-Null
           Write-Host "➡️ Workflow 2 triggered. Cycles left: $next"
+
+          - name: Autosave D sourab folder
+  if: always()
+  uses: actions/upload-artifact@v4
+  with:
+    name: sourab-data
+    path: D:\sourab
+
+0
