@@ -3,42 +3,14 @@ name: RDP + Tailscale (Workflow 1)
 on:
   workflow_dispatch:
     inputs:
-      ts_tailnet:
-        description: "Tailscale tailnet (e.g. you@gmail.com)"
-        required: true
-
-      ts_api_key:
-        description: "Tailscale API key (device admin, no Bearer)"
-        required: true
-
-      ts_authkey:
-        description: "Tailscale Auth key"
-        required: true
-
-      quick_test:
-        description: "Run 5-minute test"
-        type: boolean
-        default: false
-
-      runtime_minutes:
-        description: "Runtime minutes"
-        required: false
-        default: "450"
-
-      do_purge:
-        description: "Purge bullet* devices"
-        required: false
-        default: "true"
-
-      rdp_count:
-        description: "RDP instance count (1-10)"
-        required: false
-        default: "1"
-
-      cycles_left:
-        description: "Number of full cycles remaining"
-        required: false
-        default: "5"
+      ts_tailnet:      { description: "Tailscale tailnet", required: true }
+      ts_api_key:      { description: "Tailscale API key", required: true }
+      ts_authkey:      { description: "Tailscale Auth key", required: true }
+      quick_test:      { description: "Run 5-min test", type: boolean, default: false }
+      runtime_minutes: { description: "Runtime", required: false, default: "355" }
+      do_purge:        { description: "Purge bullet devices", required: false, default: "true" }
+      rdp_count:       { description: "RDP count", required: false, default: "1" }
+      cycles_left:     { description: "Cycles remaining", required: true }
 
 permissions:
   contents: read
