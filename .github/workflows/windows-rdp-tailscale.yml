@@ -7,7 +7,7 @@ on:
       ts_api_key:         { description: "Tailscale API key (device admin, no Bearer)", required: true }
       ts_authkey:         { description: "Tailscale Auth key", required: true }
       quick_test:         { description: "Run 5-minute test", type: boolean, default: false }
-      runtime_minutes:    { description: "Runtime minutes", required: false, default: "355" }
+      runtime_minutes:    { description: "Runtime minutes", required: false, default: "450" }
       do_purge:           { description: "Purge bullet* devices", required: false, default: "true" }
       rdp_count:          { description: "RDP instance count (1-10)", required: false, default: "1" }
       cycles_left:        { description: "Number of full cycles remaining", required: false, default: "5" }
@@ -36,10 +36,10 @@ jobs:
 
   rdp:
     needs: setup
-    runs-on: windows-10
+    runs-on: windows-2022
     strategy:
       matrix: ${{ fromJson(needs.setup.outputs.matrix) }}
-    timeout-minutes: 370
+    timeout-minutes: 500
 
     env:
       RDP_USER: bullettemporary 
